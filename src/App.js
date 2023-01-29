@@ -1,140 +1,117 @@
-import { useEffect, useState } from 'react';
-import Notification from './Notification';
-import ErrorNotification from './ErrorNotification';
-import Search from './Search';
-import PersonForm from './PersonForm';
+import { useEffect, useState } from 'react'
+import Notification from './Notification'
+import ErrorNotification from './ErrorNotification'
+import Search from './Search'
+import PersonForm from './PersonForm'
 
-import Persons from './Persons';
-import phoneService from './services/persons';
+import Persons from './Persons'
+import phoneService from './services/persons'
 
 const App = () => {
-  const [persons, setPersons] = useState([]);
-  const [newName, setNewName] = useState('');
-  const [newNumber, setNumber] = useState('');
-  const [filtered, setFiltered] = useState(persons);
-  const [notification, setNotification] = useState(null);
-  const [errorMessage, setErrorMessage] = useState(null);
+  const [persons, setPersons] = useState([])
+  const [newName, setNewName] = useState('')
+  const [newNumber, setNumber] = useState('')
+  const [notification, setNotification] = useState(null)
+  const [errorMessage, setErrorMessage] = useState(null)
+  const [personEditing, setPersonEditing] = useState(null)
+  const [editingText, setEditingText] = useState('')
   useEffect(() => {
     phoneService.getAll().then((res) => {
-      setPersons(res);
-      setFiltered(res);
-    });
-  }, []);
+      setPersons(res)
+    })
+  }, [])
 
   const addPerson = (e) => {
-    e.preventDefault();
-    console.log(e.target.querySelector('#name').value);
-    if (
-      e.target.querySelector('#name').value === '' ||
-      e.target.querySelector('#number').value === ''
-    ) {
-      alert('fill in all info(name and number) please');
-    }
-    let obj = checkingExistense(e);
-    if (obj) {
-      updatingNum(obj);
-    } else {
-      const newPerson = { name: newName, number: newNumber };
-      phoneService.create(newPerson).then((response) => {
-        setPersons(persons.concat(response));
-        setFiltered(persons.concat(response));
-        setNewName('');
-        setNumber('');
-        setNotification(`Added ${newName}`);
+    e.preventDefault()
+    const newPerson = { name: newName, number: newNumber }
+    phoneService
+      .create(newPerson)
+      .then((response) => {
+        setPersons(persons.concat(response))
+        setNewName('')
+        setNumber('')
+        setNotification(`Added ${newName}`)
         setTimeout(() => {
-          setNotification(null);
-        }, 5000);
-      });
-    }
-  };
-
-  const updatingNum = (obj) => {
-    let q = window.confirm(
-      `${newName} is already added to phonebook, replace the old number with the new one?`
-    );
-    if (q) {
-      const updatedNum = { ...obj, number: newNumber };
-      phoneService
-        .update(obj.id, updatedNum)
-        .then((returnedNote) => {
-          setFiltered(
-            filtered.map((person) =>
-              person.id !== obj.id ? person : returnedNote
-            )
-          );
-          setNewName('');
-          setNumber('');
-          setNotification(`The old number of ${newName} is replaced `);
-          setTimeout(() => {
-            setNotification(null);
-          }, 5000);
-        })
-        //if that person had already been removed
-        .catch((e) => {
-          setErrorMessage(
-            `The information of ${newName} has already been removed, please refresh the page `
-          );
-          setNewName('');
-          setNumber('');
-          setTimeout(() => {
-            setErrorMessage(null);
-          }, 5000);
-        });
-    } else {
-      setNewName('');
-      setNumber('');
-      return;
-    }
-  };
-  //Check if person already exist in our book(it's not the same as checking function - the difference is target (button and input))
-  const checkingExistense = (e) => {
-    e.preventDefault();
-
-    let query = e.target.querySelector('#name').value;
-    //console.log(query);
-    const target = persons.find((person) => person.name === query);
-    return target;
-  };
+          setNotification(null)
+        }, 5000)
+      })
+      .catch((error) => {
+        // this is the way to access the error message
+        console.log(error.response.data.error)
+        setErrorMessage(`${error.response.data.error} `)
+        setNewName('')
+        setNumber('')
+        setTimeout(() => {
+          setErrorMessage(null)
+        }, 5000)
+      })
+  }
 
   const handleNameChange = (e) => {
-    setNewName(e.target.value);
-
-    checking(e.target.value);
-  };
+    setNewName(e.target.value)
+  }
 
   const handleNumberChange = (e) => {
-    setNumber(e.target.value);
-  };
+    setNumber(e.target.value)
+  }
 
-  //Check if person already exist in our book
-  const checking = (value) => {
-    return persons.forEach((person) => {
-      if (person.name === value)
-        alert(`${value} is already added to phonebook`);
-    });
-  };
   //search for person
   const filterPersons = (e) => {
-    const query = e.target.value;
+    const query = e.target.value
+    console.log(query)
     let updatedList = persons.filter((item) => {
-      return item.name.toLowerCase().includes(query.toLowerCase());
-    });
-
-    setFiltered(updatedList);
-  };
+      return item.name.toLowerCase().includes(query.toLowerCase())
+    })
+    console.log(updatedList)
+    if (query !== '') {
+      setPersons(updatedList)
+    } else {
+      phoneService.getAll().then((res) => {
+        setPersons(res)
+      })
+    }
+  }
 
   const deleteNum = (id, name) => {
-    window.confirm(`Delete person ${name}?`);
+    if (window.confirm(`Delete person ${name}?`)) {
+      phoneService.del(id)
+      let updated = persons.filter((person) => person.id !== id)
+      setPersons(updated)
+    } else {
+      return
+    }
+  }
+  const submitEdits = (id) => {
+    const person = persons.find((n) => n.id === id)
+    console.log(editingText)
+    const changedPerson = { ...person, name: newName, number: newNumber }
+    phoneService
+      .update(id, changedPerson)
+      .then((returnedPerson) => {
+        console.log(returnedPerson)
+        setPersons(
+          persons.map((person) => (person.id !== id ? person : returnedPerson))
+        )
 
-    phoneService.del(id);
+        setNewName('')
+        setNumber('')
+      })
+      .catch((error) => {
+        // this is the way to access the error message
+        console.log(error.response.data.error)
+        setErrorMessage(`${error.response.data.error} `)
+        setNewName('')
+        setNumber('')
+        setTimeout(() => {
+          setErrorMessage(null)
+        }, 5000)
+      })
 
-    let updated = persons.filter((person) => person.id !== id);
-    setPersons(updated);
-    setFiltered(updated);
-  };
+    setPersonEditing(null)
+  }
 
   return (
-    <div className="container mt-3 w-50 ">
+    <div className="container mt-3 w-75 ">
       <Notification message={notification} />
       <ErrorNotification message={errorMessage} />
       <h2 className="h1">Phonebook</h2>
@@ -151,9 +128,18 @@ const App = () => {
         handleNumberChange={handleNumberChange}
       />
       <h2>Numbers</h2>
-      <Persons filtered={filtered} deleteNum={deleteNum} />
+      <Persons
+        persons={persons}
+        deleteNum={deleteNum}
+        submitEdits={submitEdits}
+        setEditingText={setEditingText}
+        setPersonEditing={setPersonEditing}
+        personEditing={personEditing}
+        setNewName={setNewName}
+        setNumber={setNumber}
+      />
     </div>
-  );
-};
-/* asfasd */
-export default App;
+  )
+}
+
+export default App
